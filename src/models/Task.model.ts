@@ -1,9 +1,8 @@
 import mongoose from "mongoose";
 
 const Task = new mongoose.Schema({
-  taskId: String,
-  description: String,
-  completedAddresses: [String],
+  taskId: { type: String, required: true }, // Task ID
+  address: { type: String }, // Address that completed the task
 });
 
 export default mongoose.model("task", Task);
