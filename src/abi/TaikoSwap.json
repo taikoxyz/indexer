@@ -967,6 +967,43 @@
         "type": "function"
     },
     {
+        "type": "event",
+        "name": "Swap",
+        "inputs": [
+            {
+                "type": "address",
+                "name": "sender",
+                "indexed": true
+            },
+            {
+                "type": "uint",
+                "name": "amount0In",
+                "indexed": false
+            },
+            {
+                "type": "uint",
+                "name": "amount1In",
+                "indexed": false
+            },
+            {
+                "type": "uint",
+                "name": "amount0Out",
+                "indexed": false
+            },
+            {
+                "type": "uint",
+                "name": "amount1Out",
+                "indexed": false
+            },
+            {
+                "type": "address",
+                "name": "to",
+                "indexed": true
+            }
+        ],
+        "anonymous": false
+    },
+    {
         "stateMutability": "payable",
         "type": "receive"
     }

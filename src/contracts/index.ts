@@ -16,7 +16,7 @@ export const TaikoBridgeL2 = new ethers.Contract(
 );
 
 export const TaikoSwap = new ethers.Contract(
-  "",
+  "0x501f63210aE6D7Eeb50DaE74DA5Ae407515ee246",
   require("../abi/TaikoSwap.json"),
   TaikoProvider
 );

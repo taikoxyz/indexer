@@ -1,10 +1,11 @@
 import { BigNumber, Contract, ethers, providers } from "ethers";
 import { SepoliaProvider, TaikoProvider } from "./providers/index";
+import { TaikoBridgeL1, TaikoSwap } from "./contracts";
 import { readFile, writeFile } from "fs";
 import request, { gql } from "graphql-request";
 
 import Metadata from "./models/Metadata.model";
-import { TaikoBridgeL1 } from "./contracts";
+import Stats from "./models/Stats.model";
 import Task from "./models/Task.model";
 import { connectDB } from "./config/db";
 import cors from "cors";
@@ -17,6 +18,7 @@ import schedule from "node-schedule";
 dotenv.config();
 
 const PORT = process.env.PORT || 3001;
+const BLOCK_RANGE = 100; // Sync this number of blocks at a time
 
 async function updateLatestBlockSynced(id: string, latestBlockSynced: string) {
   const metadata = await Metadata.findOne({ id: id });
@@ -31,7 +33,7 @@ async function updateLatestBlockSynced(id: string, latestBlockSynced: string) {
     });
     await newMetadata.save();
   }
-  console.log(`Updated ${id} latestBlockSynced to ${latestBlockSynced}`);
+  console.log(`${id} => block ${latestBlockSynced}`);
 }
 
 async function getLatestBlockSynced(id: string): Promise<number> {
@@ -42,7 +44,7 @@ async function getLatestBlockSynced(id: string): Promise<number> {
   } else {
     latestBlock = 0;
   }
-  console.log(`Latest block synced for ${id} is ${latestBlock}`);
+  console.log(`${id} @ block ${latestBlock}`);
   return latestBlock;
 }
 
@@ -98,7 +100,9 @@ async function syncL1BridgeTask() {
         ? TAIKO_BRIDGE_L1_START_BLOCK
         : latestBlockSynced;
     const toBlock =
-      latestBlock > fromBlock + 2000 ? fromBlock + 2000 : latestBlock;
+      latestBlock > fromBlock + BLOCK_RANGE ? fromBlock + BLOCK_RANGE - 1 : latestBlock;
+
+    console.log("[task_1] Syncing", fromBlock, "-", toBlock)
 
     let filter = {
       fromBlock: fromBlock,
@@ -108,7 +112,7 @@ async function syncL1BridgeTask() {
     const logs = await SepoliaProvider.getLogs(filter);
 
     if (logs.length > 0) {
-      console.log(`Adding ${logs.length} users to task 1...`);
+      console.log(`[task_1] Adding ${logs.length} users`);
       for (let log of logs) {
         let abiCoder = ethers.utils.defaultAbiCoder;
         let decoded = abiCoder.decode(
@@ -121,21 +125,19 @@ async function syncL1BridgeTask() {
         let sender = decoded.message.sender;
         let depositValue = decoded.message.depositValue;
         if (depositValue.gt(BigNumber.from("0"))) {
-          console.log(
-            "SENDER: ",
-            decoded.message.sender,
-            "DEPOSIT VALUE: ",
-            ethers.utils.formatEther(decoded.message.depositValue)
-          );
+
+          // Add user to Task Completed
           await addUserToTaskCompleted("1", sender);
+
+          // Add to bridge stats
+          await addL1BridgeVolume(decoded.message.depositValue)
         }
       }
     } else {
-      console.log(`No logs found between ${fromBlock} and ${toBlock}`);
+      console.log(`[task_1] No logs found`);
     }
-
     // Set latest block synced to latest block
-    await updateLatestBlockSynced("sepolia_l1_bridge", toBlock.toString());
+    await updateLatestBlockSynced("sepolia_l1_bridge", (toBlock + 1).toString());
   }
 }
 
@@ -145,52 +147,68 @@ async function syncL2SwapTask() {
   // Do until latestBlockSynced = latestBlock
 
   while (latestBlockSynced < latestBlock) {
-    let latestBlockSynced = await getLatestBlockSynced("sepolia_l1_bridge");
-    const TAIKO_BRIDGE_L1_START_BLOCK = 3610815;
+    let latestBlockSynced = await getLatestBlockSynced("taiko_l2_swap");
+    const TAIKO_SWAP_L2_START_BLOCK = 6908;
 
     const fromBlock =
-      TAIKO_BRIDGE_L1_START_BLOCK > latestBlockSynced
-        ? TAIKO_BRIDGE_L1_START_BLOCK
+      TAIKO_SWAP_L2_START_BLOCK > latestBlockSynced
+        ? TAIKO_SWAP_L2_START_BLOCK
         : latestBlockSynced;
     const toBlock =
-      latestBlock > fromBlock + 2000 ? fromBlock + 2000 : latestBlock;
+      latestBlock > fromBlock + BLOCK_RANGE ? fromBlock + BLOCK_RANGE - 1 : latestBlock;
+
+    console.log("[task_2] Syncing", fromBlock, "-", toBlock)
 
     let filter = {
       fromBlock: fromBlock,
       toBlock: toBlock,
-      ...TaikoBridgeL1.filters.MessageSent(null, null),
+      // address: TaikoSwap.address
+      // ...TaikoSwap.filters.Swap(null, null),
     };
-    const logs = await SepoliaProvider.getLogs(filter);
+    // console.log("🚀 | syncL2SwapTask | filter:", filter)
+
+    const logs = await TaikoProvider.getLogs(filter);
+
+    // console.log("🚀 | syncL2SwapTask | logs:", logs);
 
     if (logs.length > 0) {
-      console.log(`Adding ${logs.length} users to task 1...`);
+      console.log(`[task_1] Adding ${logs.length} users`);
       for (let log of logs) {
         let abiCoder = ethers.utils.defaultAbiCoder;
-        let decoded = abiCoder.decode(
-          [
-            // "bytes32 msgHash",
-            "tuple(uint256 id, address sender, uint256 srcChainId, uint256 destChainId, address owner, address to, address refundAddress, uint256 depositValue, uint256 callValue, uint256 processingFee, uint256 gasLimit, bytes data, string memo) message",
-          ],
-          log.data
-        );
-        let sender = decoded.message.sender;
-        let depositValue = decoded.message.depositValue;
-        if (depositValue.gt(BigNumber.from("0"))) {
-          console.log(
-            "SENDER: ",
-            decoded.message.sender,
-            "DEPOSIT VALUE: ",
-            ethers.utils.formatEther(decoded.message.depositValue)
+        try {
+          // 
+          let decoded = abiCoder.decode(
+            [
+              // "bytes32 msgHash",
+              "uint amount0In",
+              "uint amount1In",
+              "uint amount0Out",
+              "uint amount1Out",
+            ],
+            log.data
           );
-          await addUserToTaskCompleted("1", sender);
+          console.log(decoded);
+        } catch (e) {
         }
+
+        // let sender = decoded.message.sender;
+        // let depositValue = decoded.message.depositValue;
+        // if (depositValue.gt(BigNumber.from("0"))) {
+        //   console.log(
+        //     "SENDER: ",
+        //     decoded.message.sender,
+        //     "DEPOSIT VALUE: ",
+        //     ethers.utils.formatEther(decoded.message.depositValue)
+        //   );
+        //   await addUserToTaskCompleted("1", sender);
+        // }
       }
     } else {
-      console.log(`No logs found between ${fromBlock} and ${toBlock}`);
+      console.log(`[task_2] No logs found`);
     }
 
     // Set latest block synced to latest block
-    await updateLatestBlockSynced("sepolia_l1_bridge", toBlock.toString());
+    await updateLatestBlockSynced("taiko_l2_swap", toBlock.toString());
   }
 }
 
@@ -203,14 +221,18 @@ async function main() {
   const app = express();
   await connectDB();
 
-  await initialize();
+  // await initialize();
 
   app.listen(PORT, () => {
     console.log(`Server started on port `);
   });
 
   // Filter Bridge Transactions on L1
-  await syncL1BridgeTask();
+
+  await Promise.all([syncL1BridgeTask(), syncL2SwapTask()])
+
+  // await syncL1BridgeTask();
+  // await syncL2SwapTask();
 }
 
 // console.log("🚀 | main | decoded:", sender, depositValue);
@@ -218,11 +240,41 @@ async function main() {
 // let events = await getContractEvents(
 //   TaikoBridgeL1,
 //   3610815,
-//   3610815 + 2000,
-//   2000,
+//   3610815 + BLOCK_RANGE,
+//   BLOCK_RANGE,
 //   ["MessageSent"]
 // );
 
 main()
   .then(() => console.log("Done"))
   .catch((error) => console.error(error.stack));
+
+async function addL1BridgeVolume(depositValue: any) {
+  await Stats.findOneAndUpdate(
+    { id: "l1_bridge_volume" }, // Criteria to find the document
+    { id: "l1_bridge_volume", $inc: { ["value"]: depositValue } }, // The update operation to add the value to the existing field
+    { new: true, upsert: true } // Optional: Return the modified document instead of the original one
+  )
+}
+
+async function addL2BridgeVolume(depositValue: any) {
+
+  // Get L2Volume from Stats
+
+  // If L2Volume does not exist, create
+
+  // Add depositValue to value
+
+  // Save
+}
+/**
+ * This function will update the list of whitelisted addresses
+ * for a particular task
+ */
+function updateGalaxe(task_id: any, whitelistedIds: any[]) {
+
+  // Initialize Galaxe
+
+  // Call Galaxe Update function
+
+}

@@ -3,6 +3,8 @@
 /* eslint-disable */
 export type { TaikoBridgeL1 } from "./TaikoBridgeL1";
 export type { TaikoBridgeL2 } from "./TaikoBridgeL2";
+export type { TaikoSwap } from "./TaikoSwap";
 export * as factories from "./factories";
 export { TaikoBridgeL1__factory } from "./factories/TaikoBridgeL1__factory";
 export { TaikoBridgeL2__factory } from "./factories/TaikoBridgeL2__factory";
+export { TaikoSwap__factory } from "./factories/TaikoSwap__factory";
