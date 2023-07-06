@@ -444,7 +444,16 @@ async function main() {
   app.get("/api/user-swapped-on-taiko", async (req, res) => {
     console.log(req.query.address)
     let results = await Task.findOne({ taskId: "2", address: req.query.address });
-    console.log("🚀 | app.get | results:", results)
+    return res.json({
+      data: {
+        is_ok: results !== null
+      }
+    })
+  });
+
+  app.get("/api/user-bridged", async (req, res) => {
+    console.log(req.query.address)
+    let results = await Task.findOne({ taskId: "1", address: req.query.address });
     return res.json({
       data: {
         is_ok: results !== null
