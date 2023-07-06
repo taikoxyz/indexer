@@ -48,7 +48,7 @@ async function getLatestBlockSynced(id: string): Promise<number> {
   return latestBlock;
 }
 
-async function addUserToTaskCompleted(taskId: string, user: string) {
+async function addUserToTaskCompleted(taskId: string, user: string, value: number = 0) {
   let task = await Task.findOneAndUpdate(
     {
       taskId: taskId,
@@ -57,6 +57,7 @@ async function addUserToTaskCompleted(taskId: string, user: string) {
     {
       taskId: taskId,
       address: user,
+      $inc: { ["value"]: value }
     },
     { upsert: true }
   );
@@ -127,7 +128,7 @@ async function syncL1BridgeTask() {
         if (depositValue.gt(BigNumber.from("0"))) {
 
           // Add user to Task Completed
-          await addUserToTaskCompleted("1", sender);
+          await addUserToTaskCompleted("1", sender, decoded.message.depositValue);
 
           // Add to bridge stats
           await addL1BridgeVolume(decoded.message.depositValue)
@@ -252,7 +253,7 @@ async function syncL1BlockProved() {
           );
 
           // Add user to Task Completed
-          await addUserToTaskCompleted("3", decoded.prover);
+          await addUserToTaskCompleted("3", decoded.prover, 1);
 
           // Add to total number of blocks proved
           await addBlockProved();
@@ -273,10 +274,8 @@ async function syncL1BlockProved() {
 
 async function syncL1BlockProposed() {
 
-
   let latestBlockSynced = await getLatestBlockSynced("taiko_block_proposed");
   let latestBlock = await SepoliaProvider.getBlockNumber();
-  // Do until latestBlockSynced = latestBlock
 
   while (latestBlockSynced < latestBlock) {
     let latestBlockSynced = await getLatestBlockSynced("taiko_block_proposed");
@@ -302,44 +301,50 @@ async function syncL1BlockProposed() {
 
     if (logs.length > 0) {
       console.log(`[task_4] Adding ${logs.length} users`);
-      for (let log of logs) {
-        let abiCoder = ethers.utils.defaultAbiCoder;
-        try {
-          // 
-          let decoded = abiCoder.decode(
-            // uint64 id;
-            // uint64 timestamp;
-            // uint64 l1Height;
-            // bytes32 l1Hash;
-            // bytes32 mixHash;
-            // bytes32 txListHash;
-            // uint24 txListByteStart;
-            // uint24 txListByteEnd;
-            // uint32 gasLimit;
-            // address beneficiary;
-            // address treasury;
-            // depositsProcessed
-            // address recipient;
-            // uint96 amount;
-            // uint64 id;
-            [
-              "tuple(uint64 id, uint64 timestamp, uint64 l1Height, bytes32 l1Hash, bytes32 mixHash, bytes32 txListHash, uint24 txListByteStart, uint24 txListByteEnd, uint32 gasLimit, address beneficiary, address treasury, tuple(address recipient, uint96 amount ,uint64 id)[] depositsProcessed) meta",
-              "uint64 blockFee",
-            ],
-            log.data
-          );
-          console.log(log);
-          // console.log(decoded);
 
-          // Add user to Task Completed
-          await addUserToTaskCompleted("4", decoded.prover);
+      // Get transactionHash for each log using mapping
 
-          // Add to total number of blocks Proposed
-          await addBlockProposed();
+      // Get transaction from transactionHash
+      let transactionHashes = logs.map(log => log.transactionHash);
 
-        } catch (e) {
-          // DO NOTHING
-        }
+
+      // Get sender from transaction
+      let txs: any = await Promise.all(transactionHashes.map((transactionHash) => {
+        return SepoliaProvider.getTransaction(transactionHash);
+      }));
+      console.log("🚀 | lettxs:any=awaitPromise.all | txs:", txs)
+
+      // Get sender from transaction
+      let senders = txs.map((tx: any) => tx.from);
+      console.log("🚀 | syncL1BlockProposed | senders:", senders)
+      // Add sender to Task Completed
+      // Add to total number of blocks Proposed
+
+
+      for (let sender of senders) {
+        // let abiCoder = ethers.utils.defaultAbiCoder;
+
+        //   let decoded = abiCoder.decode(
+        //     [
+        //       "tuple(uint64 id, uint64 timestamp, uint64 l1Height, bytes32 l1Hash, bytes32 mixHash, bytes32 txListHash, uint24 txListByteStart, uint24 txListByteEnd, uint32 gasLimit, address beneficiary, address treasury, tuple(address recipient, uint96 amount ,uint64 id)[] depositsProcessed) meta",
+        //       "uint64 blockFee",
+        //     ],
+        //     log.data
+        //   );
+        // console.log(log);
+        // console.log(decoded);
+
+        // Retrieve the transaction
+        // const transaction = await SepoliaProvider.getTransaction(log.transactionHash);
+
+        // Get the sender address
+        // const sender = transaction.from;
+
+        // Add user to Task Completed
+        await addUserToTaskCompleted("4", sender, 1);
+
+        // Add to total number of blocks Proposed
+        await addBlockProposed();
       }
     } else {
       console.log(`[task_4] No logs found`);
@@ -360,14 +365,12 @@ async function main() {
   const app = express();
   await connectDB();
 
-  // await initialize();
-
   app.listen(PORT, () => {
     console.log(`Server started on port `);
   });
 
-  await Promise.all([syncL1BlockProposed()])
-  // await Promise.all([syncL1BridgeTask(), syncL2SwapTask(), syncL1BlockProved(), syncL1BlockProposed()])
+  // await Promise.all([syncL1BlockProposed()])
+  await Promise.all([syncL1BridgeTask(), syncL2SwapTask(), syncL1BlockProved(), syncL1BlockProposed()])
 
 }
 
