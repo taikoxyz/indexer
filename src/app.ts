@@ -292,15 +292,16 @@ async function syncL1BlockProved() {
             );
 
             // Add user to Task Completed
-            await addUserToTaskCompleted("3", decoded.prover, 1);
+            // await addUserToTaskCompleted("3", decoded.prover, 1);
 
             // Add to total number of blocks proved
-            await addBlockProved();
 
           } catch (e) {
             // DO NOTHING
           }
         }
+        await addBlockProved(logs.length);
+
       } else {
         console.log(`[task_3] No logs found`);
       }
@@ -393,7 +394,7 @@ async function syncL1BlockProposed() {
             // const sender = transaction.from;
 
             // Add user to Task Completed
-            await addUserToTaskCompleted("4", sender, groupedSenders[sender]);
+            // await addUserToTaskCompleted("4", sender, groupedSenders[sender]);
 
           }
         }
@@ -474,10 +475,10 @@ async function addL1BridgeVolume(depositValue: any) {
   )
 }
 
-async function addBlockProved() {
+async function addBlockProved(value: number) {
   await Stats.findOneAndUpdate(
     { id: "l1_block_proved" }, // Criteria to find the document
-    { id: "l1_block_proved", $inc: { ["value"]: 1 } }, // The update operation to add the value to the existing field
+    { id: "l1_block_proved", $inc: { ["value"]: value } }, // The update operation to add the value to the existing field
     { new: true, upsert: true } // Optional: Return the modified document instead of the original one
   )
 }
