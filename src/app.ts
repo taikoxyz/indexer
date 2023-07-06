@@ -253,6 +253,10 @@ async function syncL1BlockProved() {
 
           // Add user to Task Completed
           await addUserToTaskCompleted("3", decoded.prover);
+
+          // Add to total number of blocks proved
+          await addBlockProved();
+
         } catch (e) {
           // DO NOTHING
         }
@@ -268,6 +272,82 @@ async function syncL1BlockProved() {
 }
 
 async function syncL1BlockProposed() {
+
+
+  let latestBlockSynced = await getLatestBlockSynced("taiko_block_proposed");
+  let latestBlock = await SepoliaProvider.getBlockNumber();
+  // Do until latestBlockSynced = latestBlock
+
+  while (latestBlockSynced < latestBlock) {
+    let latestBlockSynced = await getLatestBlockSynced("taiko_block_proposed");
+    const TAIKO_L1_START_BLOCK = 3610815;
+
+    const fromBlock =
+      TAIKO_L1_START_BLOCK > latestBlockSynced
+        ? TAIKO_L1_START_BLOCK
+        : latestBlockSynced;
+    const toBlock =
+      latestBlock > fromBlock + BLOCK_RANGE ? fromBlock + BLOCK_RANGE - 1 : latestBlock;
+
+    console.log("[task_4] Syncing", fromBlock, "-", toBlock)
+
+    let filter = {
+      fromBlock: fromBlock,
+      toBlock: toBlock,
+      topics: ["0x555304f14500c230922dd951cfdbb74012005afbcd7350b4b9fd27dc12d710fe"] // Block Proposed Topic Hash
+
+    };
+
+    const logs = await SepoliaProvider.getLogs(filter);
+
+    if (logs.length > 0) {
+      console.log(`[task_4] Adding ${logs.length} users`);
+      for (let log of logs) {
+        let abiCoder = ethers.utils.defaultAbiCoder;
+        try {
+          // 
+          let decoded = abiCoder.decode(
+            // uint64 id;
+            // uint64 timestamp;
+            // uint64 l1Height;
+            // bytes32 l1Hash;
+            // bytes32 mixHash;
+            // bytes32 txListHash;
+            // uint24 txListByteStart;
+            // uint24 txListByteEnd;
+            // uint32 gasLimit;
+            // address beneficiary;
+            // address treasury;
+            // depositsProcessed
+            // address recipient;
+            // uint96 amount;
+            // uint64 id;
+            [
+              "tuple(uint64 id, uint64 timestamp, uint64 l1Height, bytes32 l1Hash, bytes32 mixHash, bytes32 txListHash, uint24 txListByteStart, uint24 txListByteEnd, uint32 gasLimit, address beneficiary, address treasury, tuple(address recipient, uint96 amount ,uint64 id)[] depositsProcessed) meta",
+              "uint64 blockFee",
+            ],
+            log.data
+          );
+          console.log(log);
+          // console.log(decoded);
+
+          // Add user to Task Completed
+          await addUserToTaskCompleted("4", decoded.prover);
+
+          // Add to total number of blocks Proposed
+          await addBlockProposed();
+
+        } catch (e) {
+          // DO NOTHING
+        }
+      }
+    } else {
+      console.log(`[task_4] No logs found`);
+    }
+
+    // Set latest block synced to latest block
+    await updateLatestBlockSynced("taiko_block_proposed", toBlock.toString());
+  }
 
 }
 
@@ -286,7 +366,8 @@ async function main() {
     console.log(`Server started on port `);
   });
 
-  await Promise.all([syncL1BridgeTask(), syncL2SwapTask(), syncL1BlockProved()])
+  await Promise.all([syncL1BlockProposed()])
+  // await Promise.all([syncL1BridgeTask(), syncL2SwapTask(), syncL1BlockProved(), syncL1BlockProposed()])
 
 }
 
@@ -303,6 +384,21 @@ async function addL1BridgeVolume(depositValue: any) {
   )
 }
 
+async function addBlockProved() {
+  await Stats.findOneAndUpdate(
+    { id: "l1_block_proved" }, // Criteria to find the document
+    { id: "l1_block_proved", $inc: { ["value"]: 1 } }, // The update operation to add the value to the existing field
+    { new: true, upsert: true } // Optional: Return the modified document instead of the original one
+  )
+}
+
+async function addBlockProposed() {
+  await Stats.findOneAndUpdate(
+    { id: "l1_block_proposed" }, // Criteria to find the document
+    { id: "l1_block_proposed", $inc: { ["value"]: 1 } }, // The update operation to add the value to the existing field
+    { new: true, upsert: true } // Optional: Return the modified document instead of the original one
+  )
+}
 async function addL2BridgeVolume(depositValue: any) {
 
   // Get L2Volume from Stats
