@@ -350,56 +350,56 @@ async function syncL1BlockProposed() {
       if (logs.length > 0) {
         console.log(`[task_4] Adding ${logs.length} users`);
 
-        // Get transactionHash for each log using mapping
+        // // Get transactionHash for each log using mapping
 
-        // Get transaction from transactionHash
-        let transactionHashes = logs.map(log => log.transactionHash);
+        // // Get transaction from transactionHash
+        // let transactionHashes = logs.map(log => log.transactionHash);
 
-        // Batch into 10s
-        let transactionHashesBatched = chunkArray(transactionHashes, 10);
+        // // Batch into 10s
+        // let transactionHashesBatched = chunkArray(transactionHashes, 10);
 
-        for (let transactionHashes of transactionHashesBatched) {
-          // Get sender from transaction
-          let txs: any = await Promise.all(transactionHashes.map((transactionHash) => {
-            return SepoliaProvider.getTransaction(transactionHash);
-          }));
-          // Get sender from transaction
-          let senders = txs.map((tx: any) => tx.from);
-
-
-          // Group senders by count
-          let groupedSenders = senders.reduce((acc: any, curr: any) => {
-            acc[curr] = (acc[curr] || 0) + 1;
-            return acc;
-          }, {});
+        // for (let transactionHashes of transactionHashesBatched) {
+        //   // Get sender from transaction
+        //   let txs: any = await Promise.all(transactionHashes.map((transactionHash) => {
+        //     return SepoliaProvider.getTransaction(transactionHash);
+        //   }));
+        //   // Get sender from transaction
+        //   let senders = txs.map((tx: any) => tx.from);
 
 
-          // for (let sender of Object.keys(groupedSenders)) {
-          // let abiCoder = ethers.utils.defaultAbiCoder;
+        //   // Group senders by count
+        //   let groupedSenders = senders.reduce((acc: any, curr: any) => {
+        //     acc[curr] = (acc[curr] || 0) + 1;
+        //     return acc;
+        //   }, {});
 
-          //   let decoded = abiCoder.decode(
-          //     [
-          //       "tuple(uint64 id, uint64 timestamp, uint64 l1Height, bytes32 l1Hash, bytes32 mixHash, bytes32 txListHash, uint24 txListByteStart, uint24 txListByteEnd, uint32 gasLimit, address beneficiary, address treasury, tuple(address recipient, uint96 amount ,uint64 id)[] depositsProcessed) meta",
-          //       "uint64 blockFee",
-          //     ],
-          //     log.data
-          //   );
-          // console.log(log);
-          // console.log(decoded);
 
-          // Retrieve the transaction
-          // const transaction = await SepoliaProvider.getTransaction(log.transactionHash);
+        // for (let sender of Object.keys(groupedSenders)) {
+        // let abiCoder = ethers.utils.defaultAbiCoder;
 
-          // Get the sender address
-          // const sender = transaction.from;
+        //   let decoded = abiCoder.decode(
+        //     [
+        //       "tuple(uint64 id, uint64 timestamp, uint64 l1Height, bytes32 l1Hash, bytes32 mixHash, bytes32 txListHash, uint24 txListByteStart, uint24 txListByteEnd, uint32 gasLimit, address beneficiary, address treasury, tuple(address recipient, uint96 amount ,uint64 id)[] depositsProcessed) meta",
+        //       "uint64 blockFee",
+        //     ],
+        //     log.data
+        //   );
+        // console.log(log);
+        // console.log(decoded);
 
-          // Add user to Task Completed
-          // await addUserToTaskCompleted("4", sender, groupedSenders[sender]);
+        // Retrieve the transaction
+        // const transaction = await SepoliaProvider.getTransaction(log.transactionHash);
 
-          // }
-        }
+        // Get the sender address
+        // const sender = transaction.from;
+
+        // Add user to Task Completed
+        // await addUserToTaskCompleted("4", sender, groupedSenders[sender]);
+
+        // }
+        // }
         // Add to total number of blocks Proposed
-        await addBlockProposed(transactionHashes.length);
+        await addBlockProposed(logs.length);
       } else {
         console.log(`[task_4] No logs found`);
       }
