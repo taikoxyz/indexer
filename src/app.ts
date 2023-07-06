@@ -374,29 +374,29 @@ async function syncL1BlockProposed() {
           }, {});
 
 
-          for (let sender of Object.keys(groupedSenders)) {
-            // let abiCoder = ethers.utils.defaultAbiCoder;
+          // for (let sender of Object.keys(groupedSenders)) {
+          // let abiCoder = ethers.utils.defaultAbiCoder;
 
-            //   let decoded = abiCoder.decode(
-            //     [
-            //       "tuple(uint64 id, uint64 timestamp, uint64 l1Height, bytes32 l1Hash, bytes32 mixHash, bytes32 txListHash, uint24 txListByteStart, uint24 txListByteEnd, uint32 gasLimit, address beneficiary, address treasury, tuple(address recipient, uint96 amount ,uint64 id)[] depositsProcessed) meta",
-            //       "uint64 blockFee",
-            //     ],
-            //     log.data
-            //   );
-            // console.log(log);
-            // console.log(decoded);
+          //   let decoded = abiCoder.decode(
+          //     [
+          //       "tuple(uint64 id, uint64 timestamp, uint64 l1Height, bytes32 l1Hash, bytes32 mixHash, bytes32 txListHash, uint24 txListByteStart, uint24 txListByteEnd, uint32 gasLimit, address beneficiary, address treasury, tuple(address recipient, uint96 amount ,uint64 id)[] depositsProcessed) meta",
+          //       "uint64 blockFee",
+          //     ],
+          //     log.data
+          //   );
+          // console.log(log);
+          // console.log(decoded);
 
-            // Retrieve the transaction
-            // const transaction = await SepoliaProvider.getTransaction(log.transactionHash);
+          // Retrieve the transaction
+          // const transaction = await SepoliaProvider.getTransaction(log.transactionHash);
 
-            // Get the sender address
-            // const sender = transaction.from;
+          // Get the sender address
+          // const sender = transaction.from;
 
-            // Add user to Task Completed
-            // await addUserToTaskCompleted("4", sender, groupedSenders[sender]);
+          // Add user to Task Completed
+          // await addUserToTaskCompleted("4", sender, groupedSenders[sender]);
 
-          }
+          // }
         }
         // Add to total number of blocks Proposed
         await addBlockProposed(transactionHashes.length);
@@ -461,6 +461,10 @@ async function main() {
       }
     })
   });
+
+
+  await Promise.all([syncL1BridgeTask(), syncL2SwapTask(), syncL1BlockProved(), syncL1BlockProposed()])
+
 }
 
 main()
