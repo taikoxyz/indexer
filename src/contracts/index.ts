@@ -20,3 +20,9 @@ export const TaikoSwap = new ethers.Contract(
   require("../abi/TaikoSwap.json"),
   TaikoProvider
 );
+
+export const TaikoL1 = new ethers.Contract(
+  "0x6375394335f34848b850114b66A49D6F47f2cdA8",
+  require("../abi/TaikoL1.json"),
+  SepoliaProvider
+);

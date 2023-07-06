@@ -1,4 +1,4 @@
-import { BigNumber, Contract, ethers, providers } from "ethers";
+import { BigNumber, Contract, ethers, providers, utils } from "ethers";
 import { SepoliaProvider, TaikoProvider } from "./providers/index";
 import { TaikoBridgeL1, TaikoSwap } from "./contracts";
 import { readFile, writeFile } from "fs";
@@ -162,54 +162,113 @@ async function syncL2SwapTask() {
     let filter = {
       fromBlock: fromBlock,
       toBlock: toBlock,
-      // address: TaikoSwap.address
-      // ...TaikoSwap.filters.Swap(null, null),
+      topics: [
+        "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822" // Swap Event
+      ]
+
     };
-    // console.log("🚀 | syncL2SwapTask | filter:", filter)
 
     const logs = await TaikoProvider.getLogs(filter);
 
-    // console.log("🚀 | syncL2SwapTask | logs:", logs);
 
     if (logs.length > 0) {
-      console.log(`[task_1] Adding ${logs.length} users`);
+      console.log(`[task_2] Adding ${logs.length} users`);
       for (let log of logs) {
-        let abiCoder = ethers.utils.defaultAbiCoder;
-        try {
-          // 
-          let decoded = abiCoder.decode(
-            [
-              // "bytes32 msgHash",
-              "uint amount0In",
-              "uint amount1In",
-              "uint amount0Out",
-              "uint amount1Out",
-            ],
-            log.data
-          );
-          console.log(decoded);
-        } catch (e) {
-        }
+        // Convert bytes32 to address
+        const address = ethers.utils.getAddress('0x' + log.topics[2].slice(26));
 
-        // let sender = decoded.message.sender;
-        // let depositValue = decoded.message.depositValue;
-        // if (depositValue.gt(BigNumber.from("0"))) {
-        //   console.log(
-        //     "SENDER: ",
-        //     decoded.message.sender,
-        //     "DEPOSIT VALUE: ",
-        //     ethers.utils.formatEther(decoded.message.depositValue)
+        // Used for decoding amount swapped
+        // let abiCoder = ethers.utils.defaultAbiCoder;
+        // try {
+        //   let decoded = abiCoder.decode(
+        //     [
+        //       "uint amount0In",
+        //       "uint amount1In",
+        //       "uint amount0Out",
+        //       "uint amount1Out",
+        //     ],
+        //     log.data
         //   );
-        //   await addUserToTaskCompleted("1", sender);
+        //   console.log(decoded);
+        // } catch (e) {
         // }
+
+        // Add user to Task Completed
+        // Currently user can swap ANY token to complete this task
+        await addUserToTaskCompleted("2", address);
       }
     } else {
       console.log(`[task_2] No logs found`);
     }
 
     // Set latest block synced to latest block
-    await updateLatestBlockSynced("taiko_l2_swap", toBlock.toString());
+    await updateLatestBlockSynced("taiko_l2_swap", (toBlock + 1).toString());
   }
+}
+
+async function syncL1BlockProved() {
+
+  let latestBlockSynced = await getLatestBlockSynced("taiko_block_proved");
+  let latestBlock = await SepoliaProvider.getBlockNumber();
+  // Do until latestBlockSynced = latestBlock
+
+  while (latestBlockSynced < latestBlock) {
+    let latestBlockSynced = await getLatestBlockSynced("taiko_block_proved");
+    const TAIKO_L1_START_BLOCK = 3610815;
+
+    const fromBlock =
+      TAIKO_L1_START_BLOCK > latestBlockSynced
+        ? TAIKO_L1_START_BLOCK
+        : latestBlockSynced;
+    const toBlock =
+      latestBlock > fromBlock + BLOCK_RANGE ? fromBlock + BLOCK_RANGE - 1 : latestBlock;
+
+    console.log("[task_3] Syncing", fromBlock, "-", toBlock)
+
+    let filter = {
+      fromBlock: fromBlock,
+      toBlock: toBlock,
+      topics: ["0x2295930c498c7b1f60143439a63dd1d24bbb730f08ff6ed383b490ba2c1cafa4"] // Block Proved Topic Hash
+
+    };
+
+    const logs = await SepoliaProvider.getLogs(filter);
+
+    if (logs.length > 0) {
+      console.log(`[task_3] Adding ${logs.length} users`);
+      for (let log of logs) {
+        let abiCoder = ethers.utils.defaultAbiCoder;
+        try {
+          // 
+          let decoded = abiCoder.decode(
+            [
+              "bytes32 parentHash",
+              "bytes32 blockHash",
+              "bytes32 signalRoot",
+              "address prover",
+              "uint32 parentGasUsed",
+            ],
+            log.data
+          );
+
+          // Add user to Task Completed
+          await addUserToTaskCompleted("3", decoded.prover);
+        } catch (e) {
+          // DO NOTHING
+        }
+      }
+    } else {
+      console.log(`[task_3] No logs found`);
+    }
+
+    // Set latest block synced to latest block
+    await updateLatestBlockSynced("taiko_block_proved", toBlock.toString());
+  }
+
+}
+
+async function syncL1BlockProposed() {
+
 }
 
 async function main() {
@@ -227,23 +286,10 @@ async function main() {
     console.log(`Server started on port `);
   });
 
-  // Filter Bridge Transactions on L1
+  await Promise.all([syncL1BridgeTask(), syncL2SwapTask(), syncL1BlockProved()])
 
-  await Promise.all([syncL1BridgeTask(), syncL2SwapTask()])
-
-  // await syncL1BridgeTask();
-  // await syncL2SwapTask();
 }
 
-// console.log("🚀 | main | decoded:", sender, depositValue);
-
-// let events = await getContractEvents(
-//   TaikoBridgeL1,
-//   3610815,
-//   3610815 + BLOCK_RANGE,
-//   BLOCK_RANGE,
-//   ["MessageSent"]
-// );
 
 main()
   .then(() => console.log("Done"))
