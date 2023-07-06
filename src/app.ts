@@ -84,31 +84,6 @@ async function addUserToTaskCompleted(taskId: string, user: string, value: numbe
   );
 }
 
-async function addUsersToTaskCompleted(taskId: string, users: string[]) {
-  if (users.length > 0) {
-    for (let user of users) {
-      let task = await Task.findOneAndUpdate(
-        {
-          taskId: taskId,
-          address: user,
-        },
-        {
-          taskId: taskId,
-          address: user,
-        },
-        { upsert: true }
-      );
-    }
-    console.log("added", users.length, "addresses");
-  }
-}
-
-async function addTask(taskId: string, description: string) {
-  const newTask = new Task({ taskId, description });
-  await newTask.save();
-}
-
-
 
 // TASK 1
 async function syncL1BridgeTask() {
@@ -250,7 +225,6 @@ async function syncL1BlockProved() {
   while (true) {
     let latestBlockSynced = await getLatestBlockSynced("taiko_block_proved");
     let latestBlock = await SepoliaProvider.getBlockNumber();
-    // Do until latestBlockSynced = latestBlock
 
     while (latestBlockSynced < latestBlock) {
       let latestBlockSynced = await getLatestBlockSynced("taiko_block_proved");
@@ -276,32 +250,7 @@ async function syncL1BlockProved() {
 
       if (logs.length > 0) {
         console.log(`[task_3] Adding ${logs.length} users`);
-        for (let log of logs) {
-          let abiCoder = ethers.utils.defaultAbiCoder;
-          try {
-            // 
-            let decoded = abiCoder.decode(
-              [
-                "bytes32 parentHash",
-                "bytes32 blockHash",
-                "bytes32 signalRoot",
-                "address prover",
-                "uint32 parentGasUsed",
-              ],
-              log.data
-            );
-
-            // Add user to Task Completed
-            // await addUserToTaskCompleted("3", decoded.prover, 1);
-
-            // Add to total number of blocks proved
-
-          } catch (e) {
-            // DO NOTHING
-          }
-        }
         await addBlockProved(logs.length);
-
       } else {
         console.log(`[task_3] No logs found`);
       }
@@ -350,55 +299,7 @@ async function syncL1BlockProposed() {
       if (logs.length > 0) {
         console.log(`[task_4] Adding ${logs.length} users`);
 
-        // // Get transactionHash for each log using mapping
 
-        // // Get transaction from transactionHash
-        // let transactionHashes = logs.map(log => log.transactionHash);
-
-        // // Batch into 10s
-        // let transactionHashesBatched = chunkArray(transactionHashes, 10);
-
-        // for (let transactionHashes of transactionHashesBatched) {
-        //   // Get sender from transaction
-        //   let txs: any = await Promise.all(transactionHashes.map((transactionHash) => {
-        //     return SepoliaProvider.getTransaction(transactionHash);
-        //   }));
-        //   // Get sender from transaction
-        //   let senders = txs.map((tx: any) => tx.from);
-
-
-        //   // Group senders by count
-        //   let groupedSenders = senders.reduce((acc: any, curr: any) => {
-        //     acc[curr] = (acc[curr] || 0) + 1;
-        //     return acc;
-        //   }, {});
-
-
-        // for (let sender of Object.keys(groupedSenders)) {
-        // let abiCoder = ethers.utils.defaultAbiCoder;
-
-        //   let decoded = abiCoder.decode(
-        //     [
-        //       "tuple(uint64 id, uint64 timestamp, uint64 l1Height, bytes32 l1Hash, bytes32 mixHash, bytes32 txListHash, uint24 txListByteStart, uint24 txListByteEnd, uint32 gasLimit, address beneficiary, address treasury, tuple(address recipient, uint96 amount ,uint64 id)[] depositsProcessed) meta",
-        //       "uint64 blockFee",
-        //     ],
-        //     log.data
-        //   );
-        // console.log(log);
-        // console.log(decoded);
-
-        // Retrieve the transaction
-        // const transaction = await SepoliaProvider.getTransaction(log.transactionHash);
-
-        // Get the sender address
-        // const sender = transaction.from;
-
-        // Add user to Task Completed
-        // await addUserToTaskCompleted("4", sender, groupedSenders[sender]);
-
-        // }
-        // }
-        // Add to total number of blocks Proposed
         await addBlockProposed(logs.length);
       } else {
         console.log(`[task_4] No logs found`);
@@ -411,10 +312,7 @@ async function syncL1BlockProposed() {
 }
 
 async function main() {
-  // Schedule a job every second
-  // schedule.scheduleJob("* * * * * *", async () => {
-  //   console.log(`Running job...`);
-  // });
+
 
   const app = express();
   await connectDB();
@@ -423,7 +321,7 @@ async function main() {
     console.log(`Server started on port ${PORT}`);
   });
 
-  // Create endpoint
+  // Create endpoints
   app.get("/api/user-proposed-block", async (req, res) => {
     let results = await axios.get(`https://eventindexer.test.taiko.xyz/events?address=${req.query.address}&event=BlockProposed`)
     return res.json({
