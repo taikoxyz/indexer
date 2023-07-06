@@ -312,11 +312,8 @@ async function syncL1BlockProposed() {
       let txs: any = await Promise.all(transactionHashes.map((transactionHash) => {
         return SepoliaProvider.getTransaction(transactionHash);
       }));
-      console.log("🚀 | lettxs:any=awaitPromise.all | txs:", txs)
-
       // Get sender from transaction
       let senders = txs.map((tx: any) => tx.from);
-      console.log("🚀 | syncL1BlockProposed | senders:", senders)
       // Add sender to Task Completed
       // Add to total number of blocks Proposed
 
