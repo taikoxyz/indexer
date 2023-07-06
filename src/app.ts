@@ -19,7 +19,7 @@ import schedule from "node-schedule";
 dotenv.config();
 
 const PORT = process.env.PORT || 3001;
-const BLOCK_RANGE = 100; // Sync this number of blocks at a time
+const BLOCK_RANGE = 1000; // Sync this number of blocks at a time
 
 // Sleep
 function sleep(ms: number) {
